@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="./output.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body style="font-family: Pixelify Sans, sans-serif;font-optical-sizing: auto;font-weight: 400;">
+    <div class="wrapper">
+        <div class="superior">
+            <div id="chat_div" class="chat">
+                <h2>Chat</h2>
+                <div id="chat_mask" class="mask_chat">
+                    <ul id="messages" class="messages">
+                        <!-- chat content
+                        <li></li>
+                     -->
+                    </ul>
+                </div>
+                <form id="form" action="" class="form">
+                    <input type="text" class="envio" id="input" autocomplete="off" /><button class="botao">Send</button>
+                </form>
+            </div>
+    
+            <canvas id="screen" width="600" height="600" class="element_jogo">
+                <img id="plyer_1" src="./img/player1.png" alt="">
+                <img id="player_2" src="./img/player2.png" alt="" srcset="">
+                <img id="fruit" src="./img/fruit.png" alt="" srcset="" >
+            </canvas>
+            
+            <div class="element-rank" id="rank_mask">
+                <div class="head_rank">
+                    <h2 class="top_player">Seu Nick</h2>
+                    <div id="localPlayer" class="top_player2">Local player</div>
+                </div>
+                <div id="rank">
+                    <ul class="lista_rank" id="rank_list">
+                 
+                    </ul>
+                </div>
+                
+            </div>
+        </div>
+
+   
+            
+    </div>
+
+
+
+    <script type="module">
+        import createGame from './game.js'
+        import createKeyboardListener from './keyBoardListener.js'
+        import renderScreen from './renderScreen.js'
+        import sendMessage from './chat.js'
+        import poitnsManager from './pointsManager.js'
+
+        const game = createGame()
+        const keyboardListener = createKeyboardListener(document)
+        const sendMsg = sendMessage(document)
+        const updatePoints = poitnsManager(document)
+        //keyboardListener.subscribe(game.movePlayer)
+        
+
+        const socket = io()
+        socket.on('connect', () => {
+
+            const playerId = socket.id
+            const screen = document.getElementById('screen')
+            renderScreen(screen, game, requestAnimationFrame, playerId)
+        })
+        socket.on('setup', (state) => {
+            const playerId = socket.id
+            game.setState(state)
+            
+            const command = {
+                rank: state.rank
+            }
+
+            const id = socket.id
+            const playerName = game.state.players[id].playerName
+            updatePoints.updatePoints(command, playerName)
+            //poitnsManager.updatePoints(state.rank)
+            
+
+            keyboardListener.registerPlayerId(playerId)
+            keyboardListener.subscribe(game.movePlayer)
+            keyboardListener.subscribe((command) => {
+                socket.emit('movePlayer', command)
+            })
+
+            updatePoints.registerPlayerId(playerId)
+            updatePoints.subscribe(game.updatePoits)
+            updatePoints.subscribe((command) => {
+                socket.emit('updatePoints', command)
+            })
+
+            sendMsg.registerPlayerId(playerId)
+            sendMsg.subscribe(game.sendMessage)
+            sendMsg.subscribe((command) => {
+                socket.emit('message', command)
+            })
+        })
+        socket.on('addplayer', (command) => {
+            game.addPlayer(command)
+            command = {
+                rank: game.state.rank
+            }
+            updatePoints.updatePoints(command)
+        })
+        socket.on('removePlayer', (command) => {
+            game.removePlayer(command)
+            command = {
+                rank: game.state.rank
+            }
+            console.log(command)
+            updatePoints.updatePoints(command)
+        })
+        socket.on('movePlayer', (command) => {
+            const playerId = socket.id
+            if (playerId !== command.playerId) {
+                game.movePlayer(command)
+            }
+        })
+        socket.on('addFruit', (command) => {
+            game.addFruit(command)
+        })
+        socket.on('removeFruit', (command) => {
+            game.removeFruits(command)
+        })
+        socket.on('message', (command) => {
+            sendMsg.receiveMessege(command)
+        })
+        socket.on('updatePoints', (command) => {
+            const id = socket.id
+            const playerName = game.state.players[id].playerName
+            updatePoints.updatePoints(command, playerName)
+        })
+
+
+    </script>
+</body>
+
+</html>
